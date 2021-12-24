@@ -41,4 +41,5 @@ For now the script has following functionalities:
 TODO 
  - add logging of buys and sells
  - add profit tracker 
+ - ad additional signals evaluator functions
  
