@@ -22,6 +22,25 @@ s_round <- function(a,b)
 }
 
 
+binance_new_oco <- function(symbol,side,price,stopprice,quantity) {
+  
+  
+  params <- list(symbol   = symbol,
+                 side     = side,
+                 price    = price,
+                 stopLimitPrice = stopprice,
+                 stopPrice = stopprice, 
+                 quantity = quantity,
+                 stopLimitTimeInForce = "GTC")    
+  
+  
+  
+  
+  ord <- binancer:::binance_query(endpoint = 'api/v3/order/oco', method = 'POST', params = params, sign = TRUE)
+  
+  
+}    
+
 binance_sell <- function(i)
 {
   a <- binancer::binance_filters(i) %>% .[filterType=="LOT_SIZE",minQty]
@@ -45,7 +64,7 @@ finding_old <- function()
   
 {
   
-  al <- binance_open_orders() %>% .[price*orig_qty>10 & price*orig_qty<33]
+  al <- binance_open_orders() %>% .[price*orig_qty>9 & price*orig_qty<33]
 
   al[,time_diff:=as.numeric( difftime(Sys.time(),time,units="min") ) ]
   
@@ -59,7 +78,7 @@ finding_old <- function()
     stats[,sma100:=SMA(close,n=100)]
     stats[,sma50:=SMA(close,n=50)]
     stats <- tail(stats,5)
-    if ((nrow(stats[sma50 > close ])>2 & nrow(stats[sma50 > close ])>2))
+    if (((nrow(stats[sma50 > open ])>1 || nrow(stats[sma100 > open ])>1)))
     {
       under <- c(under,i)
       print(under)
@@ -67,8 +86,63 @@ finding_old <- function()
     
   }
   
-  return(al[symbol %in% under & time_diff > 45 ])
+  return(al[symbol %in% under & time_diff > 14 ])
 }
+
+
+replacing_stoploss <- function()
+  
+{
+  
+  qt <- binance_balances(usdt = TRUE,threshold = 0)
+  
+  
+  #check those which were halved 
+  qt
+  name_pair <- paste0(qt[usd>15 & usd < 20,asset],"USDT")
+  
+  if(name_pair[1]=="USDT") break;
+  
+  al <- binance_open_orders() 
+  
+  tmp <-  al[symbol%in%name_pair]#,.N,by=symbol] %>% .[N<=2,symbol]
+  
+  for ( i in name_pair)
+  {
+    
+    binance_new_oco(symbol=i,side="SELL",price=round(15*1.15/qty,abs(a)),quantity = qt,stopprice =round(15/qty,abs(a)))
+    
+  }
+  
+  
+  
+  #for all in halved delete the existing order move the stoploss at 15 usdt and limitprice at 17 dollars
+  for (i in al[symbol%in%tmp,symbol])
+  {
+    
+    try({
+    print ("deleting old order")
+    
+    z <- binancer::binance_filters(i)
+    
+    a <- log(z[filterType=="PRICE_FILTER",minPrice],base=10)
+    
+    qty <- al[symbol==i,orig_qty][1]
+    
+    binance_cancel_order(symbol=i,order_id=al[symbol==i,order_id][1],client_order_id = al[symbol==i,client_order_id][1])
+    
+    print("creating new increased stoporder at breakeven")
+    
+    binance_new_oco(symbol=i,side="SELL",price=round(15*1.15/qty,abs(a)),quantity = qt,stopprice =round(15/qty,abs(a)))
+    
+    })
+  }
+  
+}
+
+
+
+
 
 
 li <- fread("./bin_cred.txt",header=FALSE)
@@ -103,6 +177,10 @@ for (i in old[,symbol])
     print("deleting order,executing sell")
     try(binance_sell(i))
    print("executed sell")
+   
+   print("finding halved")
+   
+ #  try(replacing_stoploss())
   
 }
   

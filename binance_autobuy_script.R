@@ -30,14 +30,14 @@ evaluator <- function(coin,x)
   #state <- as.numeric(coin[1,sma]<0.95*coin[x,sma])*state
   ## 2 buy conditions, either the prica breaks above the sma line or macd cross when price above the sma lines, so first condition price
   #breaks through the sma lines, recently in terms of macd
-  if (coin[x-1,sma100] >coin[x-1,open] || coin[x-1,sma50] >coin[x-1,open])
+  if (coin[x-1,sma100] >coin[x-1,open] || coin[x-1,sma50]>coin[x-1,open])
   {
     
     coin <- tail(coin,10)
     x <- 10
     state <- as.numeric(coin[x,sma100] <coin[x,close] & coin[x,sma50] <coin[x,close])*state 
-    state <- as.numeric(nrow(coin[sma100 >open])>x-4 & nrow(coin[sma50 > open])>x-4)*state
-    state <- as.numeric(nrow(coin[macd>signal])<x-6)*state 
+    state <- as.numeric(nrow(coin[sma100 >open])>x-4 || nrow(coin[sma50 > open])>x-4)*state
+    state <- as.numeric(nrow(coin[macd>signal])<x-6 || nrow(coin[macd>signal])>x-2 )*state 
     
   }else {
     
@@ -98,6 +98,9 @@ binance_buy <- function(i)
  
   
   if (a<1){a <- abs(log(a,base=10))}
+  
+  if (a%%1!=0) {stop()}
+  
   price <- binance_depth(i) %>% .$asks %>% .[1,price] 
   
   binance_new_order(symbol=i,side="BUY",type="LIMIT",quantity = round(PurchPower/price,a-1),price=price,test=FALSE,time_in_force = "GTC")
@@ -125,8 +128,9 @@ binance_new_oco <- function(symbol,side,price,stopprice,quantity) {
 
 
 
-source("./binance_old_sell.R")
+try(source("./binance_old_sell.R"))
 
+try(source("./binance_old_sell.R"))
 
 
 
@@ -158,20 +162,20 @@ coinlist <- fread("./coinlist_vol_sorted.csv",header=FALSE) %>% unlist(.) %>% as
 # write.csv(coin_lots,"coin_lots.csv")
 
 # coins <- binance_coins()
-# sink("test.txt")
-# 
+#  sink("test.txt")
+#  
 # for (i in coins)
-# {  
+#  {  
 #   try({
 #     btc <- binance_klines(symbol = paste0(i,"USDT"),interval = "1d",limit=1)
 #     cat(unlist(tail(btc,1)),"\n")
-#   })
+#  })
 # }
-# 
-# sink()
-# 
-# 
-# fread("test.txt") %>% .[,mass:=V8*V1] %>% .[order(-mass)] %>% .[,V12] %>% write.csv(.,"coinlist.csv",row.names = FALSE,quote=FALSE)
+#  
+#  sink()
+
+
+# fread("test.txt") %>% .[,mass:=V8*V1] %>% .[order(-mass)] %>% .[,V12] %>% write.csv(.,"coinlist_vol_sorted.csv",row.names = FALSE,quote=FALSE)
 # btc
 
 
@@ -221,7 +225,7 @@ for (i in coinlist)
       qt <- binance_balances(usdt = TRUE)  %>% .[asset==name,usd]
       
       
-      if(qt>19) {
+      if(qt>10) {
         next
       }
       money=money-PurchPower

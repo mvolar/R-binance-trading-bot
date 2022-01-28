@@ -97,7 +97,7 @@ for(i in balances[,asset])
     z <- binancer::binance_filters(i)
     
     
-    btc <- tail(binance_klines(i,interval = "15m",limit = 300),5)
+    btc <- tail(binance_klines(i,interval = "15m",limit = 300),8)
     
     s_price <- btc[,min(low)]
     
@@ -106,23 +106,27 @@ for(i in balances[,asset])
     b <- abs(log(z[filterType=="LOT_SIZE",minQty],base=10))
     
     qt <- binance_balances(usdt = TRUE)  %>% .[asset==name,free]
-    
-    
+  
     
     
     if (qt!=0)
     {
       
       price <- binance_depth(i) %>% .$asks %>% .[1,price] 
-      if (price*qt<35 & price*qt>20)
+      
+      if (s_price/price>0.97) {
+        s_price <- price*0.96
+        
+      }
+      if (price*qt<75 & price*qt>15)
       {
         #self half for 16 dollars or 14
-        binance_new_oco(symbol=i,side = "SELL",quantity = s_round(qt/2,b), price = round(price*1.05,abs(a)), stopprice=round(s_price,abs(a)))
+        binance_new_oco(symbol=i,side = "SELL",quantity = s_round(qt/2,b), price = round(price+2*(price-s_price),abs(a)), stopprice=round(s_price,abs(a)))
       
         
         qt <- binance_balances(usdt = TRUE)  %>% .[asset==name,free]
         
-        binance_new_oco(symbol=i,side = "SELL",quantity = s_round(qt,b), price = round(price*1.075,abs(a)), stopprice=round(s_price,abs(a)))
+        binance_new_oco(symbol=i,side = "SELL",quantity = s_round(qt,b), price = round(price*1.35,abs(a)), stopprice=round(s_price,abs(a)))
         
         
       }
