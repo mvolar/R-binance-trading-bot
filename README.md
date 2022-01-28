@@ -43,3 +43,64 @@ TODO
  - add profit tracker 
  - ad additional signals evaluator functions
  
+ 
+ ```
+ 
+btc <- binance_klines(i,interval="15m",limit=1000)
+
+# 
+ #btc[,rsi:=RSI(close,n=8)]
+ btc[,sma100:=SMA(close,n=100)]
+ btc <- cbind(btc,TTR::BBands(btc[,c("high","low","close")]))
+ btc <- cbind(btc,MACD(btc[,close]))
+ btc[,vwap:=VWAP(close,volume)]
+
+btc[,nclose:=lead(close,1)]
+
+btc[,growth:=(nclose-close)*100/close]
+
+btc[,nclose:=NULL]
+
+btc[,profitable:="no"]
+
+btc[growth>0.15,profitable:="yes"]
+
+
+
+btc[,growth:=NULL]
+
+btc[,profitable:=factor(profitable)]
+
+
+train <- btc[1:800,-c(7,12)]
+test <- btc[800:1000,-c(7,12)]
+
+
+train <- na.omit(train)
+
+model <- ranger(profitable~.,data=train[,-c(1)],importance = "impurity",mtry = 16,num.trees = 1000)
+
+preds <- predict(model,test)
+
+
+example <- confusionMatrix(data=preds$predictions, reference = test$profitable,positive="yes")
+
+example
+
+test[,preds:=preds$predictions]
+
+test[,nclose:=lead(close,1)]
+
+test[,growth:=(nclose-close)*100/close]
+
+ggplot(data.frame(importance=model$variable.importance,variable=rownames(cbind(model$variable.importance))), aes(x=reorder(variable,importance), y=importance,fill=importance))+
+     geom_bar(stat="identity", position="dodge")+ coord_flip()+
+     ylab("Variable Importance")+
+     xlab("")+
+     scale_fill_gradient(low="red", high="blue")
+
+
+test <- na.omit(test)
+
+test
+test[preds=="yes",sum(growth)]
